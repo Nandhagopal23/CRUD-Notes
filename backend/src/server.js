@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 5001;
 const __dirname = path.resolve()
 
 
-if(process.env.MODE_ENV !== "production") {
+if(process.env.NODE_ENV !== "production") {
   app.use(
   cors({
     origin: "http://localhost:5173",
@@ -34,11 +34,11 @@ app.use((req, res, next) => {
 
 app.use("/api/notes", notesRoutes);
 
-app.use(express.static(path.join(__dirname,"../frontend/dist")))
+app.use(express.static(path.join(__dirname,"frontend/dist")))
 
 if (process.env.NODE_ENV === "production") {
   app.get("*",(req,res) => {
-  res.sendFile(path.join(__dirname,"../frontend","dist","index.html"))
+  res.sendFile(path.join(__dirname,"frontend","dist","index.html"))
 })
 }
 
