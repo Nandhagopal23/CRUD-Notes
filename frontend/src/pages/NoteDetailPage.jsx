@@ -9,6 +9,7 @@ const NoteDetailPage = () => {
   const [note, setNote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [notFound, setNotFound] = useState(false);
 
   const navigate = useNavigate();
 
@@ -21,7 +22,11 @@ const NoteDetailPage = () => {
         setNote(res.data);
       } catch (error) {
         console.log("Error in fetching note", error);
-        toast.error("Failed to fetch the note");
+        if (error.response?.status === 404) {
+          setNotFound(true);
+        } else {
+          toast.error("Failed to fetch the note");
+        }
       } finally {
         setLoading(false);
       }
@@ -71,6 +76,18 @@ const NoteDetailPage = () => {
     );
   }
 
+  if (notFound) {
+    return (
+      <div className="min-h-screen bg-base-200 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-semibold mb-2">Note not found</h2>
+          <p className="mb-6 text-base-content/70">It may have been deleted or the link is incorrect.</p>
+          <Link to="/" className="btn btn-primary">Back to Notes</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-base-200">
       <div className="container mx-auto px-4 py-8">
@@ -101,7 +118,7 @@ const NoteDetailPage = () => {
                 />
               </div>
 
-              <div className="form-control mb-4">
+              <div className="form-control mb-1">
                 <label className="label">
                   <span className="label-text">Content</span>
                 </label>
@@ -112,6 +129,19 @@ const NoteDetailPage = () => {
                   onChange={(e) => setNote({ ...note, content: e.target.value })}
                 />
               </div>
+
+              {Array.isArray(note.tags) && note.tags.length > 0 && (
+                <div className="mb-4">
+                  <label className="label">
+                    <span className="label-text">Tags</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {note.tags.map((tag) => (
+                      <span key={tag} className="badge badge-outline">{tag}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="card-actions justify-end">
                 <button className="btn btn-primary" disabled={saving} onClick={handleSave}>

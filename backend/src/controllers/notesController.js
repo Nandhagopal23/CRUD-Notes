@@ -1,9 +1,32 @@
 import Note from "../models/Note.js"
+import { generateSummary, suggestTags } from "../lib/textUtils.js";
 
-export async function getAllNotes(_, res) {
+export async function getAllNotes(req, res) {
     try {
-        const notes = await Note.find().sort({ createdAt: -1}); //newest first
-        res.status(200).json(notes);
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 9, 1), 50);
+        const skip = (page - 1) * limit;
+
+        const [notes, total] = await Promise.all([
+            Note.find()
+                .sort({ createdAt: -1 }) // newest first
+                .skip(skip)
+                .limit(limit),
+            Note.countDocuments(),
+        ]);
+
+        const totalPages = Math.max(Math.ceil(total / limit), 1);
+
+        res.status(200).json({
+            data: notes,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages,
+                hasMore: page < totalPages,
+            },
+        });
 
     } catch (error) {
         console.error("Error in getAllNotes controller", error);
@@ -25,7 +48,9 @@ export async function getNoteById(req, res) {
 export async function createNote(req, res) {
     try {
         const {title,content} = req.body;
-        const note = new Note ({title: title, content: content});
+        const summary = generateSummary(content || title);
+        const tags = suggestTags(`${title} ${content}`);
+        const note = new Note ({title: title, content: content, summary, tags});
         const savedNote = await note.save()
         res.status(201).json(savedNote);
     } catch (error) {
@@ -37,15 +62,18 @@ export async function createNote(req, res) {
 export async function updateNote(req, res) {
     try {
         const { title, content } = req.body;
+        const summary = content || title ? generateSummary(content || title) : undefined;
+        const tags = (title || content) ? suggestTags(`${title ?? ""} ${content ?? ""}`) : undefined;
         const updateNote = await Note.findByIdAndUpdate(
             req.params.id,
-            { title, content },
+            { title, content, ...(summary !== undefined && { summary }), ...(tags !== undefined && { tags }) },
             {
                 new: true,
             }
         );
 
         if (!updateNote) return res.status(404).json({ message: "Note not found" });
+        return res.status(200).json(updateNote);
 
     } catch (error) {
         console.error("Error in updateNote controller", error);

@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path"
+import helmet from "helmet"
+import morgan from "morgan"
 
 import notesRoutes from "./routes/notesRoutes.js";
 import { connectDB } from "./config/db.js";
@@ -23,8 +25,11 @@ if(process.env.NODE_ENV !== "production") {
 
 }
 
-app.use(express.json()); // Parses JSON bodies
-app.use(rateLimiter);
+app.set("trust proxy", 1);
+app.use(helmet());
+app.use(process.env.NODE_ENV !== "production" ? morgan("dev") : morgan("combined"));
+app.use(express.json({ limit: "100kb" })); // Parses JSON bodies
+app.use("/api", rateLimiter);
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -42,10 +47,20 @@ if (process.env.NODE_ENV === "production") {
 })
 }
 
-// Optional: Error handler
+// 404 for unknown API routes
+app.use("/api", (req, res, next) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
+// Centralized error handler
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: "Something went wrong!" });
+  const status = err.statusCode || 500;
+  const message = err.message || "Something went wrong!";
+  if (process.env.NODE_ENV !== "production") {
+    console.error(err);
+  }
+  res.status(status).json({ message });
 });
 
 connectDB().then(() => {

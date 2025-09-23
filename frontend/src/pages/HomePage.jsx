@@ -11,13 +11,16 @@ const HomePage = () => {
   const [isRateLimited, setIsRateLimited] = useState(false);
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
-    const fetchNotes = async () => {
+    const fetchNotes = async (pageToLoad = 1) => {
       try {
-        const res = await api.get("/notes");
-        console.log(res.data);
-        setNotes(res.data);
+        const res = await api.get(`/notes?page=${pageToLoad}&limit=9`);
+        const { data, pagination } = res.data;
+        setNotes((prev) => (pageToLoad === 1 ? data : [...prev, ...data]));
+        setHasMore(pagination?.hasMore ?? false);
         setIsRateLimited(false);
       } catch (error) {
         console.log("Error fetching notes");
@@ -32,8 +35,26 @@ const HomePage = () => {
       }
     };
 
-    fetchNotes();
+    fetchNotes(1);
   }, []);
+
+  const handleLoadMore = async () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    setLoading(true);
+    await (async () => {
+      try {
+        const res = await api.get(`/notes?page=${nextPage}&limit=9`);
+        const { data, pagination } = res.data;
+        setNotes((prev) => [...prev, ...data]);
+        setHasMore(pagination?.hasMore ?? false);
+      } catch (error) {
+        if (!isRateLimited) toast.error("Failed to load more notes");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  };
 
   return (
     <div className="min-h-screen">
@@ -51,6 +72,13 @@ const HomePage = () => {
             {notes.map((note) => (
               <NoteCard key={note._id} note={note} setNotes={setNotes} />
             ))}
+          </div>
+        )}
+        {hasMore && !isRateLimited && (
+          <div className="flex justify-center mt-8">
+            <button className="btn btn-outline" onClick={handleLoadMore} disabled={loading}>
+              {loading ? "Loading..." : "Load more"}
+            </button>
           </div>
         )}
       </div>
